@@ -103,7 +103,7 @@
   /* Birthday/today color */
   .event.today .event-card,
   .event.birthday-today .event-card {
-    background: #61C0FF;
+    background: #0280FF;
   }
 
   .left-block {
@@ -154,6 +154,11 @@
     font-size: 22px;
     color: #fff;
   }
+.event.today .today-line {
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 700;
+}
   .date-line {
     font-size: 22px;
     font-weight: 700;
@@ -311,27 +316,44 @@
         if(merged.length===0){loading.textContent="No upcoming events";return;}
         loading.remove();
 
-        merged.forEach((ev,i)=>{
-          const isToday=ev.date.toLocaleDateString("en-US",{month:"2-digit",day:"2-digit"})===todayKey;
-          const dateLine=ev.date.toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"America/Los_Angeles"});
-          const timeLine=ev.isAllDay?"":ev.date.toLocaleString("en-US",{hour:"numeric",minute:"2-digit",timeZone:"America/Los_Angeles"});
-          const div=document.createElement("div");
-          div.className="event"+(i===0?" active":"")+(isToday&&ev.label==="Birthdays"?" birthday-today":"");
-          div.dataset.label=ev.label;
-          div.innerHTML=`
-            <div class="event-card">
-              <div class="left-block">
-                <div class="title">${ev.title}</div>
-                ${ev.location?`<div class="location">${ev.location}</div>`:""}
-              </div>
-              <div class="datetime">
-                ${isToday?`<div class="today-line">Today!</div>`:""}
-                <div class="date-line">${dateLine}</div>
-                ${timeLine?`<div class="time-line">${timeLine}</div>`:""}
-              </div>
-            </div>`;
-          container.appendChild(div);
-        });
+merged.forEach((ev, i) => {
+  const isBirthday = ev.label === "Birthdays";
+  const isToday = ev.date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" }) === todayKey;
+
+  const dateLine = ev.date.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "America/Los_Angeles"
+  });
+  const timeLine = ev.isAllDay ? "" : ev.date.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Los_Angeles"
+  });
+
+  const div = document.createElement("div");
+  div.className =
+    "event" +
+    (i === 0 ? " active" : "") +
+    (isToday && isBirthday ? " birthday-today" : isToday ? " today" : "");
+  div.dataset.label = ev.label;
+
+  div.innerHTML = `
+    <div class="event-card">
+      <div class="left-block">
+        <div class="title">${ev.title}</div>
+        ${ev.location ? `<div class="location">${ev.location}</div>` : ""}
+      </div>
+      <div class="datetime">
+        ${isToday ? `<div class="today-line">${isBirthday ? "Today!" : "Today"}</div>` : ""}
+        <div class="date-line">${dateLine}</div>
+        ${timeLine ? `<div class="time-line">${timeLine}</div>` : ""}
+      </div>
+    </div>`;
+  container.appendChild(div);
+});
+
 
         allEvents=merged;
         currentIndex=0;
