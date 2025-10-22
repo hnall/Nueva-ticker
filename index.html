@@ -2,33 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Nueva Ticker</title>
+<title>Nueva Unified Ticker (Birthdays + Events)</title>
 <meta name="viewport" content="width=1416, height=162, initial-scale=1.0" />
 
 <style>
-  /* ---- Sailec font family ---- */
   @font-face {
     font-family: "Sailec";
     src: url("https://raw.githubusercontent.com/hnall/sailec-font/main/Type%20Dynamic%20-%20Sailec.otf") format("opentype");
     font-weight: 400;
-    font-style: normal;
-  }
-  @font-face {
-    font-family: "Sailec";
-    src: url("https://raw.githubusercontent.com/hnall/sailec-font/main/Type%20Dynamic%20-%20Sailec%20Medium.otf") format("opentype");
-    font-weight: 500;
-    font-style: normal;
   }
   @font-face {
     font-family: "Sailec";
     src: url("https://raw.githubusercontent.com/hnall/sailec-font/main/Type%20Dynamic%20-%20Sailec%20Bold.otf") format("opentype");
     font-weight: 700;
-    font-style: normal;
   }
   @font-face {
     font-family: "Sailec";
-    src: url("https://raw.githubusercontent.com/hnall/sailec-font/main/Type%20Dynamic%20-%20Sailec%20Regular%20Italic.otf") format("opentype");
-    font-weight: 400;
+    src: url("https://raw.githubusercontent.com/hnall/sailec-font/main/Type%20Dynamic%20-%20Sailec%20Bold%20Italic.otf") format("opentype");
+    font-weight: 700;
     font-style: italic;
   }
 
@@ -38,9 +29,9 @@
     width: 1416px;
     height: 162px;
     overflow: hidden;
-    background-color: #0028BC; /* Nueva Blue */
+    background: rgba(255,255,255,0.95);
     font-family: "Sailec", Arial, sans-serif;
-    color: #fff;
+    color: #000;
   }
 
   #ticker {
@@ -52,239 +43,331 @@
     overflow: hidden;
   }
 
-  /* Header (on the left) */
   .header {
-    background: #001F5E;
-    color: #B8E81E;
-    font-weight: 700;
-    font-size: 32px;
-    padding: 0 26px;
+    width: 240px;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    white-space: nowrap;
-    height: 100%;
     flex-shrink: 0;
-    z-index: 3;
+    position: relative;
+    overflow: hidden;
   }
+  .header-text {
+    position: absolute;
+    font-weight: 700;
+    font-size: 32px;
+    color: #0028BC;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    white-space: nowrap;
+  }
+  .header-text.active { opacity: 1; transform: translateY(0); }
 
-  /* Event container with vertical swipe */
   #event-container {
     position: relative;
     width: calc(100% - 240px);
     height: 100%;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .event {
     width: 100%;
-    height: 100%;
     position: absolute;
-    top: 100%;
     opacity: 0;
-    transition: top 1s ease-in-out, opacity 0.8s ease-in-out;
-  }
-  .event.active {
-    top: 0;
-    opacity: 1;
-    z-index: 2;
-  }
-  .event.prev {
-    top: -100%;
-    opacity: 0;
-  }
-
-  /* Event card */
-  .event-card {
-    background: #fff;
-    border-left: 10px solid #B8E81E;
-    border-radius: 10px;
-    padding: 8px 28px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
     display: flex;
-    flex-direction: column;
     justify-content: center;
-    max-width: 1120px;
-    width: 94%;
-    height: 90%;
-    margin: auto;
-    color: #1A171B;
   }
+  .event.active { opacity: 1; transform: translateY(0); z-index: 2; }
 
-  .top-line {
+  .event-card {
+    background: #0028BC;
+    border-radius: 18px;
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    flex-wrap: nowrap;
-    line-height: 1.1;
+    max-width: 1120px;
+    width: 94%;
+    height: 70%;
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    padding: 0 30px;
+  }
+
+  /* Birthday/today color */
+  .event.today .event-card,
+  .event.birthday-today .event-card {
+    background: #61C0FF;
+  }
+
+  .left-block {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    padding: 10px 0;
   }
 
   .title {
     font-size: 26px;
     font-weight: 700;
-    color: #001F5E;
-    flex: 1;
-    margin-right: 20px;
+    color: #fff;
     white-space: normal;
     overflow-wrap: anywhere;
-    display: flex;
-    align-items: center;
+    margin-bottom: 4px;
   }
 
-  /* Centered date/time */
-  .datetime {
-    margin-top: 30px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    color: #0280FF;
-    min-width: 170px;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .date-line {
-    font-size: 28px;
-    font-weight: 600;
-  }
-
-  .time-line {
-    font-size: 28px;
-    font-weight: 700;
+  .title span {
+    display: inline-block;
+    margin-right: 18px;
+    margin-bottom: 2px;
   }
 
   .location {
-    font-size: 22px;
-    color: #444;
+    font-size: 20px;
+    color: #fff;
+    opacity: 0.85;
     font-style: italic;
-    margin-top: 4px;
     line-height: 1.2;
-    overflow-wrap: anywhere;
+  }
+
+  .datetime {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    text-align: right;
+    line-height: 1.2;
+    min-width: 180px;
+    color: #fff;
+  }
+  .today-line {
+    font-family: "Sailec";
+    font-weight: 700;
+    font-style: italic;
+    font-size: 22px;
+    color: #fff;
+  }
+  .date-line {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .time-line {
+    font-size: 22px;
+    font-weight: 700;
   }
 
   .no-events {
     position: absolute;
-    left: 240px;
-    width: calc(100% - 240px);
-    font-size: 30px;
-    color: #FBC4AD;
+    width: 100%;
+    font-size: 28px;
+    color: #555;
     text-align: center;
+  }
+
+  /* Confetti overlay */
+  #confetti-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    display: none;
+  }
+  #confetti-overlay img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 </style>
 </head>
 <body>
   <div id="ticker">
-    <div class="header">Nueva</div>
+    <div class="header">
+      <div class="header-text active" id="header-text">Nueva</div>
+    </div>
     <div id="event-container">
       <div class="no-events" id="loading">Loading upcoming events…</div>
+    </div>
+    <div id="confetti-overlay">
+      <img src="https://www.nuevaschool.org/fs/resource-manager/view/32772441-6983-40e3-829a-61246887a649" alt="Confetti" />
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/ical.js@1.4.0/build/ical.min.js"></script>
   <script>
-    const FEED_URL = "https://www.addevent.com/feed/adehhegiw.ics";
-    const SWITCH_INTERVAL = 15000; // 15s per event
+    const FEEDS = [
+      { url: "https://www.addevent.com/feed/adehhegiw.ics", label: "Nueva" },
+      { url: "https://www.addevent.com/feed/ahdihiodw.ics", label: "US Athletics" }
+    ];
+    const BIRTHDAYS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSCKgaZexTRAqU_kR0nZuLvPO7Pk7MAnOXB7Uk552LbbnzBsBpqIcWB4sxW6LR7_cIEcxTajkgQ1Zfe/pub?gid=301523703&single=true&output=csv";
+    const SWITCH_INTERVAL = 8000;
+    const DAYS_AHEAD = 5;
     const REFRESH_INTERVAL = 5 * 60 * 1000;
-    let currentIndex = 0, events = [];
+    const EMOJIS = ["🎂","🎈","🎁","🎉","🥳","✨"];
+    let allEvents = [];
+    let currentIndex = 0;
 
-    async function loadEvents() {
-      const container = document.getElementById("event-container");
-      const loading = document.getElementById("loading");
-      loading.textContent = "Loading upcoming events…";
-
+    async function getPacificNow() {
       try {
-        const resp = await fetch(FEED_URL);
-        if (!resp.ok) throw new Error("Network error");
-        const icsText = await resp.text();
-
-        const jcalData = ICAL.parse(icsText);
-        const comp = new ICAL.Component(jcalData);
-        const vevents = comp.getAllSubcomponents("vevent");
-
-        const now = new Date();
-        events = vevents
-          .map(e => new ICAL.Event(e))
-          .filter(ev => ev.startDate.toJSDate() > now)
-          .sort((a, b) => a.startDate.toJSDate() - b.startDate.toJSDate())
-          .slice(0, 3);
-
-        document.querySelectorAll(".event").forEach(e => e.remove());
-
-        if (events.length === 0) {
-          loading.textContent = "No upcoming events";
-          return;
-        }
-
-        loading.remove();
-
-events.forEach((ev, i) => {
-  const dt = ev.startDate.toJSDate();
-  const dateLine = dt.toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric"
-  });
-
-  // Check if event starts at midnight → treat as all-day
-  const isAllDay =
-    dt.getHours() === 0 &&
-    dt.getMinutes() === 0 &&
-    (!ev.endDate || ev.endDate.toJSDate().getHours() === 0);
-
-  let timeLine = "";
-  if (!isAllDay) {
-    timeLine = dt.toLocaleString(undefined, {
-      hour: "numeric",
-      minute: "2-digit"
-    });
-  }
-
-  const loc = ev.location ? `<div class='location'>${ev.location}</div>` : "";
-  const div = document.createElement("div");
-  div.className = "event" + (i === 0 ? " active" : "");
-  div.innerHTML = `
-    <div class="event-card">
-      <div class="top-line">
-        <span class="title">${ev.summary || ""}</span>
-        <span class="datetime">
-          <span class="date-line">${dateLine}</span>
-          ${timeLine ? `<span class="time-line">${timeLine}</span>` : ""}
-        </span>
-      </div>
-      ${loc}
-    </div>`;
-  container.appendChild(div);
-});
-
-
-        currentIndex = 0;
-        cycleEvents();
-      } catch (err) {
-        console.error(err);
-        loading.textContent = "Unable to load events";
-      }
+        const r = await fetch("https://worldtimeapi.org/api/timezone/America/Los_Angeles");
+        const d = await r.json();
+        return new Date(d.datetime);
+      } catch { return new Date(); }
     }
 
-    function cycleEvents() {
-      const eventEls = document.querySelectorAll(".event");
-      if (eventEls.length <= 1) return;
+    function parseCSV(text) {
+      const rows = [];
+      let i=0, field='', row=[], inQuotes=false;
+      while(i<text.length){
+        const c=text[i];
+        if(inQuotes){
+          if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i+=2; continue;} inQuotes=false; i++; continue;}
+          field+=c; i++; continue;
+        } else {
+          if(c==='"'){ inQuotes=true; i++; continue;}
+          if(c===','){ row.push(field); field=''; i++; continue;}
+          if(c==='\r'){ i++; continue;}
+          if(c==='\n'){ row.push(field); rows.push(row); field=''; row=[]; i++; continue;}
+          field+=c; i++; continue;
+        }
+      }
+      if(field.length>0||row.length>0){ row.push(field); rows.push(row);}
+      return rows;
+    }
 
-      setInterval(() => {
-        const current = eventEls[currentIndex];
+    function normalizeHeader(h){ return h.replace(/^\uFEFF/,'').trim().toLowerCase().replace(/[\s_/]+/g,''); }
+
+    async function loadEvents(){
+      const container=document.getElementById("event-container");
+      const loading=document.getElementById("loading");
+      const headerEl=document.getElementById("header-text");
+      const confetti=document.getElementById("confetti-overlay");
+      loading.textContent="Loading upcoming events…";
+
+      const now=await getPacificNow();
+      const todayKey=`${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")}`;
+      const end=new Date(now); end.setDate(now.getDate()+DAYS_AHEAD);
+
+      try{
+        const icsPromises=FEEDS.map(feed=>fetch(feed.url).then(r=>r.text()).then(text=>({label:feed.label,text})));
+        const birthdaysPromise=fetch(BIRTHDAYS_CSV).then(r=>r.text());
+        const [icsResults,birthdaysCSV]=await Promise.all([Promise.all(icsPromises),birthdaysPromise]);
+
+        let merged=[];
+        // ICS events
+        icsResults.forEach(({label,text})=>{
+          try{
+            const jcal=ICAL.parse(text);
+            const comp=new ICAL.Component(jcal);
+            const vevents=comp.getAllSubcomponents("vevent");
+            vevents.forEach(v=>{
+              const ev=new ICAL.Event(v);
+              const start=ev.startDate.toJSDate();
+              if(start>=now&&start<=end){
+                merged.push({label,title:ev.summary||"",date:start,isAllDay:ev.startDate.isDate,location:ev.location||""});
+              }
+            });
+          }catch{}
+        });
+
+        // Birthdays
+        const rows=parseCSV(birthdaysCSV);
+        const headers=rows[0].map(normalizeHeader);
+        const nameIdx=headers.indexOf("name");
+        const gradeIdx=headers.indexOf("titlegrade");
+        const bdayIdx=headers.indexOf("birthday");
+        const data=rows.slice(1).map(r=>({name:r[nameIdx]?.trim(),grade:r[gradeIdx]?.trim(),mmdd:r[bdayIdx]?.trim()})).filter(x=>x.name&&x.mmdd);
+
+        const dayMap=new Map();
+        for(let offset=0;offset<=DAYS_AHEAD;offset++){
+          const d=new Date(now); d.setHours(0,0,0,0); d.setDate(now.getDate()+offset);
+          const key=`${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+          dayMap.set(key,{date:d,people:[]});
+        }
+        data.forEach(entry=>{
+          if(dayMap.has(entry.mmdd)){ dayMap.get(entry.mmdd).people.push(entry);}
+        });
+        for(const [mmdd,obj]of dayMap.entries()){
+          if(obj.people.length){
+            const names=obj.people.map((p,i)=>{
+              const emoji=EMOJIS[i%EMOJIS.length];
+              return `<span>${emoji} ${p.name}${p.grade?` (${p.grade})`:""}</span>`;
+            }).join("");
+            merged.push({label:"Birthdays",title:names,date:obj.date,isAllDay:true,location:""});
+          }
+        }
+
+        merged.sort((a,b)=>a.date-b.date);
+        document.querySelectorAll(".event").forEach(e=>e.remove());
+        if(merged.length===0){loading.textContent="No upcoming events";return;}
+        loading.remove();
+
+        merged.forEach((ev,i)=>{
+          const isToday=ev.date.toLocaleDateString("en-US",{month:"2-digit",day:"2-digit"})===todayKey;
+          const dateLine=ev.date.toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"America/Los_Angeles"});
+          const timeLine=ev.isAllDay?"":ev.date.toLocaleString("en-US",{hour:"numeric",minute:"2-digit",timeZone:"America/Los_Angeles"});
+          const div=document.createElement("div");
+          div.className="event"+(i===0?" active":"")+(isToday&&ev.label==="Birthdays"?" birthday-today":"");
+          div.dataset.label=ev.label;
+          div.innerHTML=`
+            <div class="event-card">
+              <div class="left-block">
+                <div class="title">${ev.title}</div>
+                ${ev.location?`<div class="location">${ev.location}</div>`:""}
+              </div>
+              <div class="datetime">
+                ${isToday?`<div class="today-line">Today!</div>`:""}
+                <div class="date-line">${dateLine}</div>
+                ${timeLine?`<div class="time-line">${timeLine}</div>`:""}
+              </div>
+            </div>`;
+          container.appendChild(div);
+        });
+
+        allEvents=merged;
+        currentIndex=0;
+        setHeader(allEvents[0].label);
+        startCycle(confetti);
+      }catch{loading.textContent="Unable to load events";}
+    }
+
+    function setHeader(text){
+      const el=document.getElementById("header-text");
+      el.classList.remove("active");
+      setTimeout(()=>{el.textContent=text;el.classList.add("active");},200);
+    }
+
+    function startCycle(confetti){
+      const eventEls=document.querySelectorAll(".event");
+      if(eventEls.length<=1)return;
+      setInterval(()=>{
+        const current=eventEls[currentIndex];
         current.classList.remove("active");
-        current.classList.add("prev");
-
-        currentIndex = (currentIndex + 1) % eventEls.length;
-        const next = eventEls[currentIndex];
-        next.classList.remove("prev");
+        currentIndex=(currentIndex+1)%eventEls.length;
+        const next=eventEls[currentIndex];
         next.classList.add("active");
-      }, SWITCH_INTERVAL);
+        setHeader(next.dataset.label);
+
+        const isBirthdayToday=next.classList.contains("birthday-today");
+        if(isBirthdayToday){
+          confetti.style.display="block";
+          confetti.querySelector("img").src="https://www.nuevaschool.org/fs/resource-manager/view/32772441-6983-40e3-829a-61246887a649?"+Date.now();
+          setTimeout(()=>confetti.style.display="none",8000);
+        }
+      },SWITCH_INTERVAL);
     }
 
     loadEvents();
-    setInterval(loadEvents, REFRESH_INTERVAL);
+    setInterval(loadEvents,REFRESH_INTERVAL);
   </script>
 </body>
 </html>
