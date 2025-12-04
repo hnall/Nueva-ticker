@@ -216,10 +216,13 @@
       { url: "https://www.addevent.com/feed/ahdihiodw.ics", label: "US Athletics" }
     ];
     const BIRTHDAYS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSCKgaZexTRAqU_kR0nZuLvPO7Pk7MAnOXB7Uk552LbbnzBsBpqIcWB4sxW6LR7_cIEcxTajkgQ1Zfe/pub?gid=301523703&single=true&output=csv";
+
     const SWITCH_INTERVAL = 8000;
     const DAYS_AHEAD = 5;
     const REFRESH_INTERVAL = 5 * 60 * 1000;
     const EMOJIS = ["🎂","🎈","🎁","🎉","🥳","✨"];
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
     let allEvents = [];
     let currentIndex = 0;
 
@@ -227,12 +230,14 @@
     // const TEST_DATE = "2025-01-06"; // YYYY-MM-DD
     const TEST_DATE = "";
 
+    // Always use Pacific time from API – no fallback to device clock
     async function getPacificNow() {
-      try {
-        const r = await fetch("https://worldtimeapi.org/api/timezone/America/Los_Angeles");
-        const d = await r.json();
-        return new Date(d.datetime);
-      } catch { return new Date(); }
+      const r = await fetch("https://worldtimeapi.org/api/timezone/America/Los_Angeles");
+      if (!r.ok) {
+        throw new Error("Failed to fetch Pacific time");
+      }
+      const d = await r.json();
+      return new Date(d.datetime);
     }
 
     function parseCSV(text) {
@@ -255,99 +260,172 @@
       return rows;
     }
 
-    function normalizeHeader(h){ return h.replace(/^\uFEFF/,'').trim().toLowerCase().replace(/[\s_/]+/g,''); }
+    function normalizeHeader(h){
+      return h.replace(/^\uFEFF/,'').trim().toLowerCase().replace(/[\s_/]+/g,'');
+    }
+
+    // Get "MM/DD" as seen in America/Los_Angeles for a given Date
+    function getPacificKey(date) {
+      const month = date.toLocaleString("en-US", {
+        month: "2-digit",
+        timeZone: "America/Los_Angeles",
+      });
+      const day = date.toLocaleString("en-US", {
+        day: "2-digit",
+        timeZone: "America/Los_Angeles",
+      });
+      return `${month}/${day}`;
+    }
+
+    function fmtDatePacific(d){
+      return d.toLocaleString("en-US", {
+        weekday:"short",
+        month:"short",
+        day:"numeric",
+        timeZone:"America/Los_Angeles"
+      });
+    }
+
+    function fmtTimePacific(d){
+      return d.toLocaleString("en-US", {
+        hour:"numeric",
+        minute:"2-digit",
+        timeZone:"America/Los_Angeles"
+      });
+    }
 
     async function loadEvents(){
-      const container=document.getElementById("event-container");
-      const loading=document.getElementById("loading");
-      const headerEl=document.getElementById("header-text");
-      const confetti=document.getElementById("confetti-overlay");
-      loading.textContent="Loading upcoming events…";
+      const container = document.getElementById("event-container");
+      const loading = document.getElementById("loading");
+      const headerEl = document.getElementById("header-text");
+      const confetti = document.getElementById("confetti-overlay");
+      loading.textContent = "Loading upcoming events…";
 
-      // Use test date if provided; otherwise real Pacific time
-      const now = TEST_DATE ? new Date(`${TEST_DATE}T12:00:00-07:00`) : await getPacificNow();
+      let now;
+      try {
+        if (TEST_DATE) {
+          // Noon in LA on the test date, just for debugging
+          now = new Date(TEST_DATE + "T12:00:00-08:00");
+        } else {
+          now = await getPacificNow();
+        }
+      } catch (e) {
+        console.error(e);
+        loading.textContent = "Unable to get Pacific time.";
+        return;
+      }
 
-      const todayKey=`${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")}`;
-      const end=new Date(now); end.setDate(now.getDate()+DAYS_AHEAD);
+      const todayKey = getPacificKey(now);
+      const end = new Date(now.getTime() + DAYS_AHEAD * MS_PER_DAY);
 
       try{
-        const icsPromises=FEEDS.map(feed=>fetch(feed.url).then(r=>r.text()).then(text=>({label:feed.label,text})));
-        const birthdaysPromise=fetch(BIRTHDAYS_CSV).then(r=>r.text());
-        const [icsResults,birthdaysCSV]=await Promise.all([Promise.all(icsPromises),birthdaysPromise]);
+        const icsPromises = FEEDS.map(feed =>
+          fetch(feed.url)
+            .then(r => r.text())
+            .then(text => ({ label: feed.label, text }))
+        );
+        const birthdaysPromise = fetch(BIRTHDAYS_CSV).then(r => r.text());
+        const [icsResults, birthdaysCSV] = await Promise.all([
+          Promise.all(icsPromises),
+          birthdaysPromise
+        ]);
 
-        let merged=[];
+        let merged = [];
+
         // ICS events
-        icsResults.forEach(({label,text})=>{
-          try{
-            const jcal=ICAL.parse(text);
-            const comp=new ICAL.Component(jcal);
-            const vevents=comp.getAllSubcomponents("vevent");
-            vevents.forEach(v=>{
-              const ev=new ICAL.Event(v);
-              const start=ev.startDate.toJSDate();
-              if(start>=now&&start<=end){
-                merged.push({label,title:ev.summary||"",date:start,isAllDay:ev.startDate.isDate,location:ev.location||""});
+        icsResults.forEach(({ label, text }) => {
+          try {
+            const jcal = ICAL.parse(text);
+            const comp = new ICAL.Component(jcal);
+            const vevents = comp.getAllSubcomponents("vevent");
+            vevents.forEach(v => {
+              const ev = new ICAL.Event(v);
+              const start = ev.startDate.toJSDate();
+              if (start >= now && start <= end) {
+                merged.push({
+                  label,
+                  title: ev.summary || "",
+                  date: start,
+                  isAllDay: ev.startDate.isDate,
+                  location: ev.location || ""
+                });
               }
             });
-          }catch{}
+          } catch (e) {
+            console.error("Error parsing ICS feed:", label, e);
+          }
         });
 
         // Birthdays
-        const rows=parseCSV(birthdaysCSV);
-        const headers=rows[0].map(normalizeHeader);
-        const nameIdx=headers.indexOf("name");
-        const gradeIdx=headers.indexOf("titlegrade");
-        const bdayIdx=headers.indexOf("birthday");
-        const data=rows.slice(1).map(r=>({name:r[nameIdx]?.trim(),grade:r[gradeIdx]?.trim(),mmdd:r[bdayIdx]?.trim()})).filter(x=>x.name&&x.mmdd);
+        try {
+          const rows = parseCSV(birthdaysCSV);
+          const headers = rows[0].map(normalizeHeader);
+          const nameIdx = headers.indexOf("name");
+          const gradeIdx = headers.indexOf("titlegrade");
+          const bdayIdx = headers.indexOf("birthday");
 
-        const dayMap=new Map();
-        for(let offset=0;offset<=DAYS_AHEAD;offset++){
-          const d=new Date(now); d.setHours(0,0,0,0); d.setDate(now.getDate()+offset);
-          const key=`${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
-          dayMap.set(key,{date:d,people:[]});
-        }
-        data.forEach(entry=>{
-          if(dayMap.has(entry.mmdd)){ dayMap.get(entry.mmdd).people.push(entry);}
-        });
-        for(const [mmdd,obj]of dayMap.entries()){
-          if(obj.people.length){
-            // Randomize emojis per day (no duplicates until cycle)
-            const shuffledEmojis = [...EMOJIS].sort(() => Math.random() - 0.5);
-            const names = obj.people.map((p, i) => {
-              const emoji = shuffledEmojis[i % shuffledEmojis.length];
-              return `<span>${emoji} ${p.name}${p.grade ? ` (${p.grade})` : ""}</span>`;
-            }).join("");
-            merged.push({label:"Birthdays",title:names,date:obj.date,isAllDay:true,location:""});
+          const data = rows.slice(1)
+            .map(r => ({
+              name: r[nameIdx]?.trim(),
+              grade: r[gradeIdx]?.trim(),
+              mmdd: r[bdayIdx]?.trim()
+            }))
+            .filter(x => x.name && x.mmdd);
+
+          const dayMap = new Map();
+          for (let offset = 0; offset <= DAYS_AHEAD; offset++) {
+            const d = new Date(now.getTime() + offset * MS_PER_DAY);
+            const key = getPacificKey(d); // LA-based MM/DD
+            dayMap.set(key, { date: d, people: [] });
           }
+
+          data.forEach(entry => {
+            if (dayMap.has(entry.mmdd)) {
+              dayMap.get(entry.mmdd).people.push(entry);
+            }
+          });
+
+          for (const [mmdd, obj] of dayMap.entries()) {
+            if (obj.people.length) {
+              // Randomize emojis per day
+              const shuffledEmojis = [...EMOJIS].sort(() => Math.random() - 0.5);
+              const names = obj.people.map((p, i) => {
+                const emoji = shuffledEmojis[i % shuffledEmojis.length];
+                return `<span>${emoji} ${p.name}${p.grade ? ` (${p.grade})` : ""}</span>`;
+              }).join("");
+
+              merged.push({
+                label: "Birthdays",
+                title: names,
+                date: obj.date,
+                isAllDay: true,
+                location: ""
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Error processing birthdays CSV:", e);
         }
 
-        merged.sort((a,b)=>a.date-b.date);
-        document.querySelectorAll(".event").forEach(e=>e.remove());
-        if(merged.length===0){loading.textContent="No upcoming events";return;}
+        merged.sort((a, b) => a.date - b.date);
+
+        document.querySelectorAll(".event").forEach(e => e.remove());
+        if (merged.length === 0) {
+          loading.textContent = "No upcoming events";
+          return;
+        }
         loading.remove();
 
         merged.forEach((ev, i) => {
           const isBirthday = ev.label === "Birthdays";
-
-          // >>> CHANGED: robust 'today' check without locale time drift
-          const evDateKey = `${String(ev.date.getMonth() + 1).padStart(2, "0")}/${String(ev.date.getDate()).padStart(2, "0")}`;
+          const evDateKey = getPacificKey(ev.date);
           const isToday = evDateKey === todayKey;
 
-          const dateLine = ev.date.toLocaleString("en-US", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            timeZone: "America/Los_Angeles"
-          });
-          const timeLine = ev.isAllDay ? "" : ev.date.toLocaleString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            timeZone: "America/Los_Angeles"
-          });
+          const dateLine = fmtDatePacific(ev.date);
+          const timeLine = ev.isAllDay ? "" : fmtTimePacific(ev.date);
 
           const div = document.createElement("div");
 
-          // >>> CHANGED: clearer class assignment logic
           let extraClass = "";
           if (isBirthday && isToday) {
             extraClass = " birthday-today";
@@ -372,40 +450,43 @@
             </div>`;
           container.appendChild(div);
 
-          // (optional) console signal for debugging
-          if (isBirthday && isToday) console.log("🎉 Birthday today detected:", ev.title);
+          if (isBirthday && isToday) {
+            console.log("🎉 Birthday today detected:", ev.title);
+          }
         });
 
-        allEvents=merged;
-        currentIndex=0;
+        allEvents = merged;
+        currentIndex = 0;
         setHeader(allEvents[0].label);
-        startCycle(document.getElementById("confetti-overlay"));
-      }catch(e){
+        startCycle(confetti);
+      } catch (e) {
         console.error(e);
-        loading.textContent="Unable to load events";
+        loading.textContent = "Unable to load events";
       }
     }
 
     function setHeader(text){
-      const el=document.getElementById("header-text");
+      const el = document.getElementById("header-text");
       el.classList.remove("active");
-      setTimeout(()=>{el.textContent=text;el.classList.add("active");},200);
+      setTimeout(() => {
+        el.textContent = text;
+        el.classList.add("active");
+      }, 200);
     }
 
     function startCycle(confetti){
-      const eventEls=document.querySelectorAll(".event");
-      if(eventEls.length<=1)return;
+      const eventEls = document.querySelectorAll(".event");
+      if (eventEls.length <= 1) return;
 
-      setInterval(()=>{
-        const current=eventEls[currentIndex];
+      setInterval(() => {
+        const current = eventEls[currentIndex];
         current.classList.remove("active");
 
-        currentIndex=(currentIndex+1)%eventEls.length;
-        const next=eventEls[currentIndex];
+        currentIndex = (currentIndex + 1) % eventEls.length;
+        const next = eventEls[currentIndex];
         next.classList.add("active");
         setHeader(next.dataset.label);
 
-        // >>> CHANGED: trigger confetti reliably for birthday-today
         const isBirthdayToday =
           next.classList.contains("birthday-today") ||
           (next.dataset.label === "Birthdays" && next.classList.contains("today"));
@@ -414,15 +495,17 @@
           console.log("🎊 Confetti triggered for:", next.dataset.label);
           confetti.style.display = "block";
           // cache-bust GIF so it restarts
-          confetti.querySelector("img").src =
-            "https://www.nuevaschool.org/fs/resource-manager/view/32772441-6983-40e3-829a-61246887a649?" + Date.now();
-          setTimeout(()=>{ confetti.style.display="none"; }, 8000);
+          const img = confetti.querySelector("img");
+          img.src = "https://www.nuevaschool.org/fs/resource-manager/view/32772441-6983-40e3-829a-61246887a649?" + Date.now();
+          setTimeout(() => {
+            confetti.style.display = "none";
+          }, 8000);
         }
-      },SWITCH_INTERVAL);
+      }, SWITCH_INTERVAL);
     }
 
     loadEvents();
-    setInterval(loadEvents,REFRESH_INTERVAL);
+    setInterval(loadEvents, REFRESH_INTERVAL);
   </script>
 </body>
 </html>
