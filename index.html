@@ -157,7 +157,7 @@
     color: #fff;
   }
   .event.today .today-line {
-    font-size: 20px; /* slightly smaller for events to reduce crowding */
+    font-size: 20px;
     font-style: italic;
     font-weight: 700;
   }
@@ -226,18 +226,11 @@
     let allEvents = [];
     let currentIndex = 0;
 
-    // OPTIONAL: test a specific date (Pacific time); set to "" to disable
-    // const TEST_DATE = "2025-01-06"; // YYYY-MM-DD
-    const TEST_DATE = "";
-
-    // Always use Pacific time from API – no fallback to device clock
-    async function getPacificNow() {
-      const r = await fetch("https://worldtimeapi.org/api/timezone/America/Los_Angeles");
-      if (!r.ok) {
-        throw new Error("Failed to fetch Pacific time");
-      }
-      const d = await r.json();
-      return new Date(d.datetime);
+    // Same idea as the lunch menu: get "now" in America/Los_Angeles
+    function getPacificNow() {
+      return new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+      );
     }
 
     function parseCSV(text) {
@@ -264,7 +257,7 @@
       return h.replace(/^\uFEFF/,'').trim().toLowerCase().replace(/[\s_/]+/g,'');
     }
 
-    // Get "MM/DD" as seen in America/Los_Angeles for a given Date
+    // Get "MM/DD" as seen in America/Los_Angeles
     function getPacificKey(date) {
       const month = date.toLocaleString("en-US", {
         month: "2-digit",
@@ -297,25 +290,11 @@
     async function loadEvents(){
       const container = document.getElementById("event-container");
       const loading = document.getElementById("loading");
-      const headerEl = document.getElementById("header-text");
       const confetti = document.getElementById("confetti-overlay");
       loading.textContent = "Loading upcoming events…";
 
-      let now;
-      try {
-        if (TEST_DATE) {
-          // Noon in LA on the test date, just for debugging
-          now = new Date(TEST_DATE + "T12:00:00-08:00");
-        } else {
-          now = await getPacificNow();
-        }
-      } catch (e) {
-        console.error(e);
-        loading.textContent = "Unable to get Pacific time.";
-        return;
-      }
-
-      const todayKey = getPacificKey(now);
+      const now = getPacificNow();           // LA-based "now"
+      const todayKey = getPacificKey(now);   // e.g. "12/07"
       const end = new Date(now.getTime() + DAYS_AHEAD * MS_PER_DAY);
 
       try{
@@ -387,7 +366,6 @@
 
           for (const [mmdd, obj] of dayMap.entries()) {
             if (obj.people.length) {
-              // Randomize emojis per day
               const shuffledEmojis = [...EMOJIS].sort(() => Math.random() - 0.5);
               const names = obj.people.map((p, i) => {
                 const emoji = shuffledEmojis[i % shuffledEmojis.length];
@@ -494,7 +472,6 @@
         if (isBirthdayToday) {
           console.log("🎊 Confetti triggered for:", next.dataset.label);
           confetti.style.display = "block";
-          // cache-bust GIF so it restarts
           const img = confetti.querySelector("img");
           img.src = "https://www.nuevaschool.org/fs/resource-manager/view/32772441-6983-40e3-829a-61246887a649?" + Date.now();
           setTimeout(() => {
